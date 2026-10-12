@@ -1,0 +1,6 @@
+{
+  "name": "Callista Persona Studio - Backend API",
+  "description": "Fondasi backend Node.js mandiri untuk sistem bot persona WhatsApp Callista Persona Studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

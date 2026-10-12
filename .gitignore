@@ -1,0 +1,29 @@
+# Dependensi Node.js
+node_modules/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# File log dan runtime debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Sesi autentikasi WhatsApp & token kredensial
+auth_info/
+sessions/
+session/
+tokens/
+credentials/
+*.session
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Build & OS artefacts
+dist/
+build/
+.DS_Store
+Thumbs.db

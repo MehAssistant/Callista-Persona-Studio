@@ -1,0 +1,23 @@
+{
+  "name": "callista-persona-studio",
+  "version": "1.0.0",
+  "description": "Fondasi backend Node.js mandiri untuk sistem bot persona WhatsApp Callista Persona Studio",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "build": "echo 'No build step required for Node.js backend'",
+    "lint": "node --check src/server.js src/app.js src/config/index.js src/middleware/*.js src/routes/*.js src/services/*.js src/controllers/*.js"
+  },
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.12.0",
+    "@google/genai": "^2.28.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7"
+  }
+}
