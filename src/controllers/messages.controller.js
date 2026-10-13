@@ -79,7 +79,7 @@ export const messagesController = {
 
       // Validasi status koneksi WhatsApp
       const currentStatus = whatsappService.getStatus();
-      if (currentStatus.status !== 'connected') {
+      if (!currentStatus.isReady && currentStatus.status !== 'ready' && currentStatus.status !== 'connected') {
         return res.status(409).json({
           success: false,
           error: {
