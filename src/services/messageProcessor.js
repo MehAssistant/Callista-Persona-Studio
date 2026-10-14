@@ -125,6 +125,17 @@ class MessageProcessor {
     // Filter 4: Filter khusus untuk pesan grup vs chat pribadi
     if (message.isGroup) {
       const groupCheck = this.checkLocalGroupFilter(message, whatsappClient);
+      eventHub.emitFilterCheck({
+        messageId: message.id,
+        chatId: message.chatId,
+        isGroup: true,
+        senderId: message.senderId,
+        senderName: message.senderName,
+        text: message.text,
+        allowed: groupCheck.allowed,
+        reason: groupCheck.reason,
+      });
+
       if (!groupCheck.allowed) {
         console.log(`[FILTER LOKAL] Pesan grup ${message.id} dari ${message.senderName || message.senderId} di ${message.chatId} dilewati: ${groupCheck.reason} [Vertex AI TIDAK DIPANGGIL]`);
         return;
@@ -132,6 +143,16 @@ class MessageProcessor {
       console.log(`[FILTER LOKAL] Pesan grup ${message.id} lolos filter lokal (${groupCheck.reason}). Melanjutkan ke analisis Vertex AI...`);
     } else {
       // Chat pribadi: Tidak mewajibkan nama pemicu agar percakapan lanjutan tetap mengalir
+      eventHub.emitFilterCheck({
+        messageId: message.id,
+        chatId: message.chatId,
+        isGroup: false,
+        senderId: message.senderId,
+        senderName: message.senderName,
+        text: message.text,
+        allowed: true,
+        reason: 'Pesan chat pribadi langsung memiliki konteks penerima yang jelas.',
+      });
       console.log(`[FILTER LOKAL] Pesan chat pribadi ${message.id} dari ${message.senderName || message.senderId} lolos filter lokal. Melanjutkan ke analisis Vertex AI...`);
     }
 
@@ -145,6 +166,14 @@ class MessageProcessor {
       }
 
       console.log(`[PIPELINE] Memulai analisis Vertex AI untuk pesan ${message.id} dari ${message.senderName || message.senderId} di ${message.chatId}...`);
+      eventHub.emitAiProcessing({
+        messageId: message.id,
+        chatId: message.chatId,
+        senderId: message.senderId,
+        senderName: message.senderName,
+        text: message.text,
+        contextCount: context.length,
+      });
 
       // 2. Klasifikasi intent dan penyusunan balasan persona menggunakan Vertex AI Express Mode
       const classification = await vertexAiClassifier.classifyMessage({
@@ -163,6 +192,7 @@ class MessageProcessor {
         confidence: classification.confidence,
         reason: classification.reason,
         targetPerson: classification.targetPerson,
+        suggestedReply: classification.suggestedReply || null,
       });
 
       console.log(`[PIPELINE] Klasifikasi selesai (${message.id}): Intent=${classification.intent}, shouldReply=${classification.shouldReply}, Confidence=${classification.confidence}`);

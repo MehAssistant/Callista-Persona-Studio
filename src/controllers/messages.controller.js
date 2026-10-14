@@ -1,5 +1,7 @@
 import messageStore from '../services/messageStore.js';
 import whatsappService from '../services/whatsappClient.js';
+import messageProcessor from '../services/messageProcessor.js';
+import eventHub from '../services/eventHub.js';
 
 export const messagesController = {
   /**
@@ -95,6 +97,74 @@ export const messagesController = {
         success: true,
         message: 'Pesan berhasil dikirim.',
         data: sentResult,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /api/messages/simulate
+   * Menstimulasikan pesan masuk untuk pengujian realtime pipeline AI & trigger langsung dari UI
+   */
+  async simulateMessage(req, res, next) {
+    try {
+      const { text, chatId, isGroup, senderName, senderId } = req.body;
+
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Parameter text wajib diisi.',
+            statusCode: 400,
+          },
+        });
+      }
+
+      const defaultGroup = '120363023456789@g.us';
+      const defaultUser = '628123456789@s.whatsapp.net';
+      const resolvedChatId = (chatId && typeof chatId === 'string' && chatId.trim())
+        ? chatId.trim()
+        : (isGroup ? defaultGroup : defaultUser);
+
+      const resolvedIsGroup = typeof isGroup === 'boolean'
+        ? isGroup
+        : resolvedChatId.endsWith('@g.us');
+
+      const resolvedSenderId = (senderId && typeof senderId === 'string' && senderId.trim())
+        ? senderId.trim()
+        : (resolvedIsGroup ? '628987654321@s.whatsapp.net' : resolvedChatId);
+
+      const messageId = `sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const simulatedMsg = {
+        id: messageId,
+        chatId: resolvedChatId,
+        isGroup: resolvedIsGroup,
+        senderId: resolvedSenderId,
+        senderName: senderName || (resolvedIsGroup ? 'Anggota Grup' : 'Teman Chat'),
+        text: text.trim(),
+        type: 'chat',
+        timestamp: new Date().toISOString(),
+        quotedMessageId: null,
+        quotedParticipant: null,
+        fromMe: false,
+      };
+
+      const savedMessage = messageStore.addIncomingMessage(simulatedMsg);
+      if (savedMessage) {
+        eventHub.emitMessageReceived(savedMessage);
+
+        // Jalankan pipeline (filter lokal -> Vertex AI -> balasan) tanpa memblokir respons HTTP
+        messageProcessor.processIncomingMessage(savedMessage, whatsappService).catch((procErr) => {
+          console.error('[SIMULASI] Kesalahan pemrosesan pipeline:', procErr?.message || procErr);
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Pesan simulasi berhasil dimasukkan ke pipeline real-time.',
+        data: simulatedMsg,
       });
     } catch (err) {
       next(err);

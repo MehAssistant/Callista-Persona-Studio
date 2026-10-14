@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Callista Persona Studio — Realtime Monitor & Trigger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b1120; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    .feed-container { max-height: calc(100vh - 250px); }
+  </style>
+</head>
+<body class="bg-[#090d16] text-slate-200 font-sans min-h-screen flex flex-col antialiased selection:bg-sky-500/30">
+
+  <!-- TOP BAR -->
+  <header class="border-b border-slate-800/80 bg-[#0d1424] sticky top-0 z-30 px-4 lg:px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-mono font-bold text-sm">
+          CP
+        </div>
+        <div>
+          <h1 class="text-sm lg:text-base font-semibold text-slate-100 flex items-center gap-2">
+            Callista Persona Studio
+            <span class="text-xs font-mono font-normal text-slate-400">· Realtime Console</span>
+          </h1>
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span>Engine: Baileys</span>
+            <span aria-hidden="true">·</span>
+            <span>Vertex AI: gemini-2.5-flash</span>
+            <span aria-hidden="true">·</span>
+            <span>Pemicu: Callista, Firka, Clarrisa</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Connection Badges (Unboxed typography) -->
+      <div class="flex items-center gap-4 text-xs">
+        <div class="flex items-center gap-1.5" id="sse-status-wrapper">
+          <span class="w-2 h-2 rounded-full bg-slate-500 animate-pulse" id="sse-dot"></span>
+          <span class="text-slate-400" id="sse-text">SSE: Menghubungkan...</span>
+        </div>
+        <span class="text-slate-700" aria-hidden="true">|</span>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-500" id="wa-dot"></span>
+          <span class="text-slate-300 font-medium" id="wa-status-text">WA: Memeriksa...</span>
+        </div>
+        <button id="btn-refresh-status" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition" title="Refresh status koneksi">
+          🔄 Cek
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main class="max-w-7xl mx-auto w-full p-4 lg:p-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: TRIGGER CONSOLE & WHATSAPP CONTROLS (5 cols on lg) -->
+    <div class="lg:col-span-5 flex flex-col gap-5">
+
+      <!-- WHATSAPP STATUS & QR PANEL -->
+      <section class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Koneksi WhatsApp</span>
+          </div>
+          <span id="wa-user-badge" class="text-xs text-slate-400 font-mono">Belum terhubung</span>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button id="btn-wa-connect" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition flex items-center gap-1.5">
+            <span>🔌</span> Sambungkan WA
+          </button>
+          <button id="btn-wa-disconnect" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 border border-slate-700 rounded-lg transition flex items-center gap-1.5">
+            <span>🛑</span> Putus
+          </button>
+          <button id="btn-wa-qr" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition">
+            Lihat QR
+          </button>
+        </div>
+
+        <!-- QR Display Container (Shown when QR is available) -->
+        <div id="qr-container" class="hidden mt-4 p-4 bg-slate-900/80 border border-amber-500/30 rounded-lg text-center">
+          <p class="text-xs font-medium text-amber-400 mb-2">Pindai QR ini melalui WhatsApp di Ponsel Anda:</p>
+          <div class="flex justify-center p-2 bg-white rounded-lg inline-block mx-auto">
+            <img id="qr-image" src="" alt="WhatsApp QR Code" class="w-48 h-48 mx-auto" />
+          </div>
+          <p id="qr-meta" class="text-[11px] text-slate-400 mt-2 font-mono">Berlaku ~60 detik</p>
+        </div>
+      </section>
+
+      <!-- TRIGGER CONSOLE TABS -->
+      <section class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-sm flex-1 flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Trigger API & Pengujian</span>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex items-center gap-1 p-1 bg-slate-900/80 rounded-lg border border-slate-800 text-xs mb-4">
+          <button type="button" data-tab="simulate" class="tab-btn flex-1 py-1.5 font-medium rounded-md text-center transition bg-slate-800 text-sky-400 shadow-sm">
+            Simulasi Masuk
+          </button>
+          <button type="button" data-tab="send" class="tab-btn flex-1 py-1.5 font-medium rounded-md text-center transition text-slate-400 hover:text-slate-200">
+            Kirim WA
+          </button>
+          <button type="button" data-tab="ai" class="tab-btn flex-1 py-1.5 font-medium rounded-md text-center transition text-slate-400 hover:text-slate-200">
+            Direct AI
+          </button>
+          <button type="button" data-tab="context" class="tab-btn flex-1 py-1.5 font-medium rounded-md text-center transition text-slate-400 hover:text-slate-200">
+            Konteks Grup
+          </button>
+        </div>
+
+        <!-- TAB 1: SIMULASI PESAN MASUK & TRIGGER ALUR -->
+        <div id="panel-simulate" class="tab-panel flex flex-col gap-3">
+          <div class="text-xs text-slate-400">
+            Simulasikan pesan masuk untuk menguji <span class="text-slate-200">filter lokal, klasifikasi Vertex AI, dan keputusan balasan</span> secara instan di feed realtime.
+          </div>
+
+          <!-- Presets -->
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" class="preset-btn px-2 py-1 text-[11px] bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60" data-text="Halo Callista, bagaimana kabarmu hari ini?" data-group="true">
+              + Halo Callista (Grup)
+            </button>
+            <button type="button" class="preset-btn px-2 py-1 text-[11px] bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60" data-text="Selamat pagi teman-teman semua!" data-group="true">
+              + Obrolan Umum (Grup Tanpa Trigger)
+            </button>
+            <button type="button" class="preset-btn px-2 py-1 text-[11px] bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60" data-text="Firka, kamu suka makanan apa?" data-group="true">
+              + Pemicu Firka (Grup)
+            </button>
+            <button type="button" class="preset-btn px-2 py-1 text-[11px] bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60" data-text="Bisa bantu jelaskan sesuatu?" data-group="false">
+              + Chat Pribadi Langsung
+            </button>
+          </div>
+
+          <form id="form-simulate" class="flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <label class="text-xs text-slate-400 flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="simIsGroup" value="true" checked class="text-sky-500 focus:ring-0">
+                Pesan Grup (@g.us)
+              </label>
+              <label class="text-xs text-slate-400 flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="simIsGroup" value="false" class="text-sky-500 focus:ring-0">
+                Chat Pribadi
+              </label>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Nama Pengirim</label>
+              <input type="text" id="sim-sender-name" value="Budi Santoso" class="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 text-slate-200" placeholder="Misal: Budi">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Isi Pesan Masuk</label>
+              <textarea id="sim-text" rows="3" required class="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 text-slate-200" placeholder="Tulis pesan masuk di sini..."></textarea>
+            </div>
+
+            <button type="submit" id="btn-submit-simulate" class="w-full py-2 text-xs font-medium bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex items-center justify-center gap-1.5">
+              <span>🚀</span> Uji Alur & Trigger Realtime
+            </button>
+          </form>
+        </div>
+
+        <!-- TAB 2: KIRIM PESAN MANUAL -->
+        <div id="panel-send" class="tab-panel hidden flex flex-col gap-3">
+          <div class="text-xs text-slate-400">
+            Kirim pesan manual melalui WhatsApp client aktual ke nomor kontak atau grup tertentu.
+          </div>
+
+          <form id="form-send" class="flex flex-col gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Target Chat ID / Nomor</label>
+              <input type="text" id="send-chat-id" required class="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 text-slate-200 font-mono" placeholder="Misal: 628123456789 atau ID@g.us">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Teks Pesan</label>
+              <textarea id="send-text" rows="3" required class="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 text-slate-200" placeholder="Tulis pesan yang akan dikirim..."></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Kutip Pesan ID (Opsional)</label>
+              <input type="text" id="send-quoted-id" class="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 text-slate-200 font-mono" placeholder="ID pesan yang dibalas (opsional)">
+            </div>
+
+            <button type="submit" id="btn-submit-send" class="w-full py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition flex items-center justify-center gap-1.5">
+              <span>📤</span> Kirim Pesan via WhatsApp
+            </button>
+          </form>
+        </div>
+
+        <!-- TAB 3: DIRECT AI CLASSIFIER -->
+        <div id="panel-ai" class="tab-panel hidden flex flex-col gap-3">
+          <div class="text-xs text-slate-400">
+            Panggil endpoint <code class="text-sky-400 font-mono">POST /api/ai/classify</code> secara langsung untuk melihat hasil raw JSON klasifikasi Vertex AI Express Mode.
+          </div>
+
+          <form id="form-ai" class="flex flex-col gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Teks Pesan Uji</label>
+              <textarea id="ai-text" rows="2" required class="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 text-slate-200" placeholder="Misal: Callista, apakah besok hujan?"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Tipe Percakapan</label>
+                <select id="ai-is-group" class="w-full px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:outline-none">
+                  <option value="true">Grup (dengan filter)</option>
+                  <option value="false">Chat Pribadi</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Pengirim</label>
+                <input type="text" id="ai-sender" value="Tester" class="w-full px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:outline-none">
+              </div>
+            </div>
+
+            <button type="submit" id="btn-submit-ai" class="w-full py-2 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition flex items-center justify-center gap-1.5">
+              <span>🧠</span> Analisis Vertex AI Langsung
+            </button>
+          </form>
+
+          <div id="ai-raw-output" class="hidden mt-2 p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-[11px] font-mono overflow-x-auto max-h-48 text-slate-300">
+          </div>
+        </div>
+
+        <!-- TAB 4: BUFFER KONTEKS GRUP -->
+        <div id="panel-context" class="tab-panel hidden flex flex-col gap-3">
+          <div class="text-xs text-slate-400">
+            Periksa buffer memori (maks 10 pesan terakhir) untuk grup tertentu yang dijadikan referensi konteks percakapan Callista.
+          </div>
+
+          <form id="form-context" class="flex gap-2">
+            <input type="text" id="context-chat-id" value="120363023456789@g.us" class="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-200 font-mono" placeholder="Group JID...">
+            <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">
+              Muat
+            </button>
+          </form>
+
+          <div id="context-list" class="flex flex-col gap-1.5 max-h-60 overflow-y-auto mt-1">
+            <p class="text-xs text-slate-500 italic">Tekan tombol Muat untuk memeriksa buffer grup.</p>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN: REALTIME EVENT STREAM (7 cols on lg) -->
+    <div class="lg:col-span-7 flex flex-col gap-4">
+
+      <section class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-sm flex-1 flex flex-col">
+        <!-- Feed Header & Controls -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
+          <div class="flex items-center gap-2">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span>⚡</span> Alur Pemrosesan Realtime
+            </h2>
+            <span id="event-count" class="text-xs text-slate-500 font-mono">0 event</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Filter Selector -->
+            <select id="feed-filter" class="px-2 py-1 text-xs bg-slate-900 border border-slate-800 rounded text-slate-300 focus:outline-none">
+              <option value="all">Semua Event</option>
+              <option value="message_received">Pesan Masuk</option>
+              <option value="filter_check">Filter Trigger</option>
+              <option value="ai_processing">Proses AI</option>
+              <option value="message_classified">Hasil AI</option>
+              <option value="message_sent">Balasan</option>
+              <option value="whatsapp_status">WhatsApp</option>
+            </select>
+
+            <label class="text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" id="auto-scroll" checked class="rounded bg-slate-900 border-slate-700 text-sky-500">
+              Auto-scroll
+            </label>
+
+            <button id="btn-clear-feed" class="px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded border border-slate-700 transition" title="Bersihkan log">
+              Bersihkan
+            </button>
+          </div>
+        </div>
+
+        <!-- Event Cards Container -->
+        <div id="feed-container" class="feed-container flex-1 overflow-y-auto mt-3 pr-1 flex flex-col gap-2.5">
+          <!-- Initial Empty State -->
+          <div id="feed-empty" class="py-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400">
+              📡
+            </div>
+            <p>Menunggu aktivitas atau pesan WhatsApp...</p>
+            <p class="text-[11px] text-slate-600 max-w-xs">Gunakan tab <span class="text-slate-400 font-medium">"Simulasi Masuk"</span> di sebelah kiri untuk menguji alur secara instan tanpa menunggu pesan nyata.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- NOTIFICATION TOAST -->
+  <div id="toast" class="fixed bottom-4 right-4 z-50 transform translate-y-12 opacity-0 transition duration-200 pointer-events-none px-4 py-2.5 rounded-lg text-xs font-medium shadow-lg max-w-sm flex items-center gap-2">
+  </div>
+
+  <script>
+    // Global State
+    let eventCount = 0;
+    let sseSource = null;
+    let currentFilter = 'all';
+
+    // DOM Elements
+    const sseDot = document.getElementById('sse-dot');
+    const sseText = document.getElementById('sse-text');
+    const waDot = document.getElementById('wa-dot');
+    const waStatusText = document.getElementById('wa-status-text');
+    const waUserBadge = document.getElementById('wa-user-badge');
+    const qrContainer = document.getElementById('qr-container');
+    const qrImage = document.getElementById('qr-image');
+    const qrMeta = document.getElementById('qr-meta');
+    const feedContainer = document.getElementById('feed-container');
+    const feedEmpty = document.getElementById('feed-empty');
+    const eventCountEl = document.getElementById('event-count');
+    const autoScrollEl = document.getElementById('auto-scroll');
+    const feedFilterEl = document.getElementById('feed-filter');
+    const toast = document.getElementById('toast');
+
+    // Toast helper
+    function showToast(msg, type = 'info') {
+      toast.textContent = msg;
+      toast.className = 'fixed bottom-4 right-4 z-50 transition duration-200 px-4 py-2.5 rounded-lg text-xs font-medium shadow-lg max-w-sm flex items-center gap-2 ';
+      if (type === 'success') {
+        toast.className += 'bg-emerald-950 text-emerald-200 border border-emerald-700/60 translate-y-0 opacity-100';
+      } else if (type === 'error') {
+        toast.className += 'bg-rose-950 text-rose-200 border border-rose-700/60 translate-y-0 opacity-100';
+      } else {
+        toast.className += 'bg-slate-800 text-slate-200 border border-slate-700 translate-y-0 opacity-100';
+      }
+      setTimeout(() => {
+        toast.className += ' translate-y-12 opacity-0';
+      }, 3500);
+    }
+
+    // Tab Navigation
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.className = 'tab-btn flex-1 py-1.5 font-medium rounded-md text-center transition text-slate-400 hover:text-slate-200';
+        });
+        btn.className = 'tab-btn flex-1 py-1.5 font-medium rounded-md text-center transition bg-slate-800 text-sky-400 shadow-sm';
+
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        const activePanel = document.getElementById(`panel-${tab}`);
+        if (activePanel) activePanel.classList.remove('hidden');
+      });
+    });
+
+    // Preset Buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = btn.getAttribute('data-text');
+        const isGroup = btn.getAttribute('data-group') === 'true';
+        document.getElementById('sim-text').value = text;
+        const radios = document.getElementsByName('simIsGroup');
+        for (const r of radios) {
+          r.checked = (r.value === String(isGroup));
+        }
+      });
+    });
+
+    // Helper: update WhatsApp Status UI
+    function updateWhatsAppStatusUI(data) {
+      const status = data?.status || 'disconnected';
+      const user = data?.user;
+
+      if (status === 'ready') {
+        waDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        waStatusText.textContent = 'WA: Terhubung';
+        waStatusText.className = 'text-emerald-400 font-medium';
+        waUserBadge.textContent = user?.name ? `${user.name} (${user.id || ''})` : 'Akun Terhubung';
+        qrContainer.classList.add('hidden');
+      } else if (status === 'qr_required') {
+        waDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+        waStatusText.textContent = 'WA: Perlu Scan QR';
+        waStatusText.className = 'text-amber-400 font-medium';
+        waUserBadge.textContent = 'Scan QR Diperlukan';
+        fetchQrCode();
+      } else if (status === 'initializing') {
+        waDot.className = 'w-2 h-2 rounded-full bg-sky-500 animate-pulse';
+        waStatusText.textContent = 'WA: Inisialisasi...';
+        waStatusText.className = 'text-sky-400 font-medium';
+        waUserBadge.textContent = 'Menghubungkan';
+      } else if (status === 'auth_failure') {
+        waDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+        waStatusText.textContent = 'WA: Gagal / Logout';
+        waStatusText.className = 'text-rose-400 font-medium';
+        waUserBadge.textContent = data.lastError || 'Auth Failure';
+        qrContainer.classList.add('hidden');
+      } else {
+        waDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        waStatusText.textContent = 'WA: Terputus';
+        waStatusText.className = 'text-slate-400 font-medium';
+        waUserBadge.textContent = 'Offline';
+        qrContainer.classList.add('hidden');
+      }
+    }
+
+    // Fetch Status from REST API
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/whatsapp/status');
+        const data = await res.json();
+        if (data?.data) {
+          updateWhatsAppStatusUI(data.data);
+        }
+      } catch (err) {
+        console.warn('Gagal mengambil status:', err);
+      }
+    }
+
+    // Fetch QR Code from REST API
+    async function fetchQrCode() {
+      try {
+        const res = await fetch('/api/whatsapp/qr');
+        const data = await res.json();
+        if (data?.data?.qrAvailable && data?.data?.qrDataUrl) {
+          qrImage.src = data.data.qrDataUrl;
+          qrContainer.classList.remove('hidden');
+          if (data.data.expiresAt) {
+            qrMeta.textContent = `Kedaluwarsa: ${new Date(data.data.expiresAt).toLocaleTimeString()}`;
+          }
+        } else {
+          qrContainer.classList.add('hidden');
+        }
+      } catch (err) {
+        console.warn('Gagal mengambil QR:', err);
+      }
+    }
+
+    // Setup Server-Sent Events (SSE)
+    function connectSSE() {
+      if (sseSource) {
+        sseSource.close();
+      }
+
+      sseDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+      sseText.textContent = 'SSE: Menyambung...';
+
+      sseSource = new EventSource('/api/events');
+
+      sseSource.onopen = () => {
+        sseDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        sseText.textContent = 'SSE: Terhubung';
+      };
+
+      sseSource.onerror = (err) => {
+        sseDot.className = 'w-2 h-2 rounded-full bg-rose-500 animate-pulse';
+        sseText.textContent = 'SSE: Reconnect...';
+      };
+
+      // WhatsApp Status Event
+      sseSource.addEventListener('whatsapp_status', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          updateWhatsAppStatusUI(data);
+          addFeedItem('whatsapp_status', 'Status WhatsApp Diperbarui', data);
+        } catch (_err) {}
+      });
+
+      // Message Received Event
+      sseSource.addEventListener('message_received', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addFeedItem('message_received', 'Pesan Masuk Diterima', data);
+        } catch (_err) {}
+      });
+
+      // Filter Check Event
+      sseSource.addEventListener('filter_check', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addFeedItem('filter_check', data.allowed ? 'Lolos Filter Trigger' : 'Dilewati (Di Luar Trigger)', data);
+        } catch (_err) {}
+      });
+
+      // AI Processing Event
+      sseSource.addEventListener('ai_processing', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addFeedItem('ai_processing', 'Vertex AI Menganalisis Pesan', data);
+        } catch (_err) {}
+      });
+
+      // Message Classified Event
+      sseSource.addEventListener('message_classified', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addFeedItem('message_classified', `Klasifikasi Selesai: ${data.intent}`, data);
+        } catch (_err) {}
+      });
+
+      // Message Sent Event
+      sseSource.addEventListener('message_sent', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addFeedItem('message_sent', 'Balasan WhatsApp Terkirim', data);
+        } catch (_err) {}
+      });
+    }
+
+    // Add card to Realtime Feed
+    function addFeedItem(type, title, data) {
+      if (feedEmpty) feedEmpty.remove();
+
+      eventCount++;
+      eventCountEl.textContent = `${eventCount} event`;
+
+      const card = document.createElement('div');
+      card.setAttribute('data-event-type', type);
+      card.className = `event-card p-3 rounded-lg border text-xs transition duration-150 ${
+        currentFilter !== 'all' && currentFilter !== type ? 'hidden' : ''
+      } `;
+
+      const timeStr = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+
+      let icon = '⚡';
+      let borderClass = 'border-slate-800 bg-slate-900/60';
+      let titleColor = 'text-slate-200';
+      let bodyHtml = '';
+
+      switch (type) {
+        case 'message_received':
+          icon = '📥';
+          borderClass = 'border-sky-900/50 bg-sky-950/20';
+          titleColor = 'text-sky-300';
+          bodyHtml = `
+            <div class="mt-1.5 flex items-center gap-2 text-slate-400 text-[11px]">
+              <span class="font-medium text-slate-300">${data.senderName || data.senderId}</span>
+              <span aria-hidden="true">·</span>
+              <span>${data.isGroup ? 'Grup: ' + data.chatId : 'Pribadi'}</span>
+            </div>
+            <div class="mt-1 text-slate-200 bg-slate-900/80 p-2 rounded border border-slate-800 font-mono text-[11px] select-text">
+              "${escapeHtml(data.text || '')}"
+            </div>
+          `;
+          break;
+
+        case 'filter_check':
+          if (data.allowed) {
+            icon = '✓';
+            borderClass = 'border-emerald-900/50 bg-emerald-950/20';
+            titleColor = 'text-emerald-300';
+          } else {
+            icon = '✕';
+            borderClass = 'border-amber-900/40 bg-amber-950/15';
+            titleColor = 'text-amber-300';
+          }
+          bodyHtml = `
+            <div class="mt-1 text-slate-300">
+              ${escapeHtml(data.reason || '')}
+            </div>
+            <div class="mt-1 text-[11px] text-slate-400">
+              Pesan: <span class="text-slate-300 italic">"${escapeHtml(data.text || '')}"</span>
+            </div>
+          `;
+          break;
+
+        case 'ai_processing':
+          icon = '🧠';
+          borderClass = 'border-indigo-900/50 bg-indigo-950/25';
+          titleColor = 'text-indigo-300';
+          bodyHtml = `
+            <div class="mt-1 text-slate-300">
+              Mengirim prompt persona Callista ke Google Vertex AI Express Mode...
+            </div>
+            <div class="mt-1 text-[11px] text-slate-400 font-mono">
+              Konteks: ${data.contextCount || 0} pesan sebelumnya · ID: ${data.messageId || '-'}
+            </div>
+          `;
+          break;
+
+        case 'message_classified':
+          const willReply = data.shouldReply === true;
+          icon = willReply ? '🎯' : '🤫';
+          borderClass = willReply ? 'border-sky-900/60 bg-sky-950/30' : 'border-slate-800 bg-slate-900/50';
+          titleColor = willReply ? 'text-sky-300' : 'text-slate-400';
+          bodyHtml = `
+            <div class="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+              <span class="text-slate-300 font-mono font-medium">Intent: ${data.intent}</span>
+              <span aria-hidden="true">·</span>
+              <span class="text-slate-400">Confidence: ${(data.confidence || 0).toFixed(2)}</span>
+              <span aria-hidden="true">·</span>
+              <span class="${willReply ? 'text-emerald-400 font-semibold' : 'text-slate-400'}">Keputusan: ${willReply ? 'Balas' : 'Diam'}</span>
+            </div>
+            <div class="mt-1 text-slate-300 text-[11px]">
+              ${escapeHtml(data.reason || '')}
+            </div>
+            ${data.suggestedReply ? `
+              <div class="mt-2 p-2 bg-slate-900 rounded border border-sky-800/40 text-sky-200 text-xs">
+                <span class="text-[10px] uppercase font-bold text-sky-400 block mb-0.5">Draft Balasan Callista:</span>
+                "${escapeHtml(data.suggestedReply)}"
+              </div>
+            ` : ''}
+          `;
+          break;
+
+        case 'message_sent':
+          icon = '💬';
+          borderClass = 'border-emerald-900/60 bg-emerald-950/25';
+          titleColor = 'text-emerald-300';
+          bodyHtml = `
+            <div class="mt-1 text-[11px] text-slate-400">
+              Terkirim ke: <span class="font-mono text-slate-300">${data.chatId}</span>
+              ${data.quotedMessageId ? `<span class="ml-1 text-slate-500">(Quote: ${data.quotedMessageId})</span>` : ''}
+            </div>
+            <div class="mt-1.5 text-slate-100 bg-slate-900/90 p-2 rounded border border-emerald-800/40 text-xs font-sans">
+              "${escapeHtml(data.text || '')}"
+            </div>
+          `;
+          break;
+
+        case 'whatsapp_status':
+          icon = '📡';
+          borderClass = 'border-slate-800 bg-slate-900/60';
+          titleColor = 'text-slate-300';
+          bodyHtml = `
+            <div class="mt-1 text-slate-300">
+              Status WhatsApp: <span class="font-mono font-medium text-sky-300">${data.status}</span>
+              ${data.lastError ? `<div class="text-rose-400 text-[11px] mt-0.5">${escapeHtml(data.lastError)}</div>` : ''}
+            </div>
+          `;
+          break;
+      }
+
+      card.className += borderClass;
+      card.innerHTML = `
+        <div class="flex items-center justify-between text-[11px] text-slate-400">
+          <div class="flex items-center gap-1.5 font-medium ${titleColor}">
+            <span>${icon}</span>
+            <span>${title}</span>
+          </div>
+          <span class="font-mono text-slate-500">${timeStr}</span>
+        </div>
+        ${bodyHtml}
+      `;
+
+      feedContainer.appendChild(card);
+
+      if (autoScrollEl.checked) {
+        feedContainer.scrollTop = feedContainer.scrollHeight;
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Filter change
+    feedFilterEl.addEventListener('change', (e) => {
+      currentFilter = e.target.value;
+      document.querySelectorAll('.event-card').forEach(card => {
+        const type = card.getAttribute('data-event-type');
+        if (currentFilter === 'all' || currentFilter === type) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    });
+
+    // Clear feed
+    document.getElementById('btn-clear-feed').addEventListener('click', () => {
+      feedContainer.innerHTML = '';
+      eventCount = 0;
+      eventCountEl.textContent = '0 event';
+    });
+
+    // ACTION HANDLERS
+
+    // 1. WhatsApp Connect
+    document.getElementById('btn-wa-connect').addEventListener('click', async () => {
+      showToast('Memulai inisialisasi WhatsApp Baileys...', 'info');
+      try {
+        const res = await fetch('/api/whatsapp/connect', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'Permintaan connect dikirim', data.success ? 'success' : 'info');
+        fetchStatus();
+      } catch (err) {
+        showToast('Gagal memanggil API connect: ' + err.message, 'error');
+      }
+    });
+
+    // 2. WhatsApp Disconnect
+    document.getElementById('btn-wa-disconnect').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/whatsapp/disconnect', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'WhatsApp diputus', 'info');
+        fetchStatus();
+      } catch (err) {
+        showToast('Gagal memanggil API disconnect: ' + err.message, 'error');
+      }
+    });
+
+    // 3. See QR
+    document.getElementById('btn-wa-qr').addEventListener('click', fetchQrCode);
+    document.getElementById('btn-refresh-status').addEventListener('click', fetchStatus);
+
+    // 4. Form Submit: Simulate Incoming Message
+    document.getElementById('form-simulate').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('sim-text').value.trim();
+      const senderName = document.getElementById('sim-sender-name').value.trim();
+      const radios = document.getElementsByName('simIsGroup');
+      let isGroup = true;
+      for (const r of radios) {
+        if (r.checked) isGroup = (r.value === 'true');
+      }
+
+      if (!text) return;
+
+      const submitBtn = document.getElementById('btn-submit-simulate');
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-50');
+
+      try {
+        const res = await fetch('/api/messages/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            isGroup,
+            senderName,
+            chatId: isGroup ? '120363023456789@g.us' : '628123456789@s.whatsapp.net',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Pesan simulasi masuk ke pipeline! Perhatikan feed realtime.', 'success');
+        } else {
+          showToast('Error: ' + (data.error?.message || 'Gagal simulasi'), 'error');
+        }
+      } catch (err) {
+        showToast('Gagal mengirim simulasi: ' + err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50');
+      }
+    });
+
+    // 5. Form Submit: Send Message via WhatsApp
+    document.getElementById('form-send').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const chatId = document.getElementById('send-chat-id').value.trim();
+      const text = document.getElementById('send-text').value.trim();
+      const quotedMessageId = document.getElementById('send-quoted-id').value.trim() || undefined;
+
+      if (!chatId || !text) return;
+
+      const submitBtn = document.getElementById('btn-submit-send');
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-50');
+
+      try {
+        const res = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, text, quotedMessageId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Pesan berhasil dikirim via WhatsApp!', 'success');
+          document.getElementById('send-text').value = '';
+        } else {
+          showToast(`Gagal: ${data.error?.message || 'Gagal mengirim'}`, 'error');
+        }
+      } catch (err) {
+        showToast('Kesalahan API kirim: ' + err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50');
+      }
+    });
+
+    // 6. Form Submit: Direct AI
+    document.getElementById('form-ai').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('ai-text').value.trim();
+      const isGroup = document.getElementById('ai-is-group').value === 'true';
+      const senderName = document.getElementById('ai-sender').value.trim();
+      const rawOutput = document.getElementById('ai-raw-output');
+
+      if (!text) return;
+
+      const submitBtn = document.getElementById('btn-submit-ai');
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-50');
+      rawOutput.classList.remove('hidden');
+      rawOutput.textContent = 'Memanggil Vertex AI Express Mode...';
+
+      try {
+        const res = await fetch('/api/ai/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            isGroup,
+            senderName,
+            chatId: isGroup ? '120363023456789@g.us' : '628123456789@s.whatsapp.net',
+          }),
+        });
+        const data = await res.json();
+        rawOutput.textContent = JSON.stringify(data, null, 2);
+        if (data.success) {
+          showToast('Klasifikasi AI selesai!', 'success');
+        } else {
+          showToast('AI Error: ' + (data.error?.message || 'Gagal klasifikasi'), 'error');
+        }
+      } catch (err) {
+        rawOutput.textContent = 'Error: ' + err.message;
+        showToast('Kesalahan: ' + err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50');
+      }
+    });
+
+    // 7. Form Submit: Group Context
+    document.getElementById('form-context').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const chatId = document.getElementById('context-chat-id').value.trim();
+      const contextList = document.getElementById('context-list');
+      contextList.innerHTML = '<p class="text-xs text-slate-400">Memuat konteks grup...</p>';
+
+      try {
+        const res = await fetch(`/api/chats/${encodeURIComponent(chatId)}/context`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data?.messages)) {
+          if (data.data.messages.length === 0) {
+            contextList.innerHTML = '<p class="text-xs text-slate-500 italic">Buffer kosong (belum ada pesan tersimpan untuk grup ini).</p>';
+            return;
+          }
+          contextList.innerHTML = '';
+          data.data.messages.forEach(msg => {
+            const item = document.createElement('div');
+            item.className = 'p-2 rounded bg-slate-900 border border-slate-800 text-[11px]';
+            item.innerHTML = `
+              <div class="flex items-center justify-between text-slate-400">
+                <span class="font-medium text-slate-300">${escapeHtml(msg.senderName || msg.senderId)}</span>
+                <span class="font-mono text-[10px] text-slate-500">${new Date(msg.timestamp).toLocaleTimeString()}</span>
+              </div>
+              <div class="text-slate-200 mt-1 font-mono">${escapeHtml(msg.text)}</div>
+            `;
+            contextList.appendChild(item);
+          });
+        } else {
+          contextList.innerHTML = `<p class="text-xs text-rose-400">${data.error?.message || 'Gagal memuat konteks'}</p>`;
+        }
+      } catch (err) {
+        contextList.innerHTML = `<p class="text-xs text-rose-400">Error: ${err.message}</p>`;
+      }
+    });
+
+    // Initialization
+    fetchStatus();
+    connectSSE();
+  </script>
+</body>
+</html>

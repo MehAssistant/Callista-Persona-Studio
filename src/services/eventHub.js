@@ -23,10 +23,30 @@ class EventHub extends EventEmitter {
   }
 
   /**
-   * Publikasikan penerimaan pesan masuk nyata
+   * Publikasikan penerimaan pesan masuk
    */
   emitMessageReceived(message) {
     this.emit('message_received', message);
+  }
+
+  /**
+   * Publikasikan pengecekan filter lokal / trigger nama
+   */
+  emitFilterCheck(data) {
+    this.emit('filter_check', {
+      timestamp: new Date().toISOString(),
+      ...data,
+    });
+  }
+
+  /**
+   * Publikasikan mulainya pemrosesan Vertex AI
+   */
+  emitAiProcessing(data) {
+    this.emit('ai_processing', {
+      timestamp: new Date().toISOString(),
+      ...data,
+    });
   }
 
   /**

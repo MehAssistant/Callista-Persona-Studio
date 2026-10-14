@@ -4,7 +4,7 @@ import whatsappService from '../services/whatsappClient.js';
 export const eventsController = {
   /**
    * GET /api/events
-   * Server-Sent Events (SSE) endpoint untuk streaming pembaruan realtime ke calon frontend
+   * Server-Sent Events (SSE) endpoint untuk streaming pembaruan realtime ke dashboard
    */
   streamEvents(req, res) {
     // Header wajib SSE
@@ -36,6 +36,14 @@ export const eventsController = {
       sendSSE('message_received', message);
     };
 
+    const onFilterCheck = (data) => {
+      sendSSE('filter_check', data);
+    };
+
+    const onAiProcessing = (data) => {
+      sendSSE('ai_processing', data);
+    };
+
     const onMessageClassified = (classification) => {
       sendSSE('message_classified', classification);
     };
@@ -47,6 +55,8 @@ export const eventsController = {
     // Daftarkan listener ke EventHub
     eventHub.on('whatsapp_status', onWhatsAppStatus);
     eventHub.on('message_received', onMessageReceived);
+    eventHub.on('filter_check', onFilterCheck);
+    eventHub.on('ai_processing', onAiProcessing);
     eventHub.on('message_classified', onMessageClassified);
     eventHub.on('message_sent', onMessageSent);
 
@@ -60,6 +70,8 @@ export const eventsController = {
       clearInterval(heartbeatInterval);
       eventHub.removeListener('whatsapp_status', onWhatsAppStatus);
       eventHub.removeListener('message_received', onMessageReceived);
+      eventHub.removeListener('filter_check', onFilterCheck);
+      eventHub.removeListener('ai_processing', onAiProcessing);
       eventHub.removeListener('message_classified', onMessageClassified);
       eventHub.removeListener('message_sent', onMessageSent);
     });

@@ -15,4 +15,7 @@ router.get('/:id', messagesController.getMessageById);
 // POST /api/messages/send - Pengiriman pesan manual
 router.post('/send', messagesController.sendMessage);
 
+// POST /api/messages/simulate - Simulasi pesan masuk untuk pengujian realtime pipeline & trigger
+router.post('/simulate', messagesController.simulateMessage);
+
 export default router;
